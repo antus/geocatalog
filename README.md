@@ -24,13 +24,18 @@ After registration, you will be able to explore all the basic functionalities of
 
 ## Install Cartoview
 
-Cartoview can be setup and installed in different ways, flavors and plattforms. If you´re planning to do development or install for production please visit the offical Cartoview installation documentation:
 
-- [Ubuntu 20.04 LTS](https://cartoview.readthedocs.io/en/latest/installation/ubuntu/)
-- [Windows](https://cartoview.readthedocs.io/en/latest/installation/windows/)
-- [Docker](https://cartoview.readthedocs.io/en/latest/installation/docker/)
-
-Cartoview also has a Windows installer which doesn't require any knowledge regarding programming and can be requested and downloaded from [here](https://cartoview.net/download/).
+## Prerequisites
+	1. Install docker, git
+	2. download geocatalog
+## Installation	
+    1. Set environment variable GP_HOST with the public IP or hostname of the machine and the port used with ngnix in docker-compose/docker-compose-prod. Ex: GP_HOST=10.5.0.1:8080
+	2. Launch init_host.bat to setup the host on the configuration files
+	3. On windows, install from pre-requisites folder make-3.81.exe 
+	4. For dev:
+		launch 'make run'
+	   For prod:
+	    launch 'make -f Makefile-prod run'
 
 ## Customizing Cartoview
 

@@ -1,46 +1,63 @@
-version: "3"
+version: '3.9'
+
 services:
+
+  # POSTGIG
   postgis:
-    image: kartoza/postgis:13
+    image: kartoza/postgis:${POSTGIS_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-postgis
     volumes:
-      - postgis-data:/var/lib/postgresql
-      # - dbbackups:/backups
+      - db-data:/var/lib/postgresql
+      - db-backups:/backups
+      - ./init_host_env/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql
     env_file:
       - ./env/postgis.env
     expose:
       - "5432"
-    restart: on-failure
     healthcheck:
-      test: "exit 0"
-    networks:
-      -cartoview-internal:
+      test: "pg_isready -d postgres -U postgres"
+    # uncomment to enable remote connections to postgres
+    ports:
+      - "5444:5432"      
+    restart: on-failure
+
+  # ELASTIC-SEARCH
   elasticsearch:
-    image: elasticsearch:5.6.12-alpine
+    image: elasticsearch:${ELASTICSEARCH_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-elastic-search
     restart: unless-stopped
     stdin_open: true
     tty: true
     expose:
       - "9300"
       - "9200"
-    networks:
-      -cartoview-internal:
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  # RABBIT-MQ
   rabbitmq:
-    image: rabbitmq:latest
+    image: rabbitmq:${RABBITMQ_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-rabbitmq
     restart: unless-stopped
     expose:
       - "5672"
       - "15672"
-    networks:
-      -cartoview-internal:
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq      
+
+  # GEOSERVER-DATA-DIR
   data-dir-conf:
-    image: geonode/geoserver_data:2.19.x
+    image: geonode/geoserver_data:${GEOSERVER_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-gs-data-dir-conf
     restart: on-failure
-    container_name: gsconf4cartoview
     command: /bin/true
     volumes:
       - geoserver-dir:/geoserver_data/data
+
+  # GEOSERVER 
   geoserver:
-    image: geonode/geoserver:2.19.x
+    image: geonode/geoserver:${GEOSERVER_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-geoserver
     depends_on:
       - postgis
       - data-dir-conf
@@ -51,14 +68,12 @@ services:
       - geoserver-dir:/geoserver_data/data
     env_file:
       - ./env/tomcat.env
-    networks:
-      -cartoview-external:
-        ipv4_address: 10.5.0.2
-      -cartoview-internal:
+  
+  # CARTOVIEW
   cartoview:
     build: .
     image: cartoview:latest
-    container_name: cartoview_django
+    container_name: ${COMPOSE_PROJECT_NAME}-django
     command: bash -c "python manage.py cherry_server"
     restart: unless-stopped
     hostname: cartoview
@@ -70,15 +85,13 @@ services:
     volumes:
       - "./:/usr/src/carto_app/cartoview"
       - geoserver-dir:/geoserver_data/data
-    networks:
-      -cartoview-external:
-        ipv4_address: 10.5.0.3
-      -cartoview-internal:
     expose:
       - "8000"
+      
+  # CELERY      
   celery:
     image: cartoview:latest
-    container_name: cartoview_celery
+    container_name: ${COMPOSE_PROJECT_NAME}-celery
     command: bash -c "celery -A cartoview.celery:app worker -B -E --statedb=./worker.state -s ./celerybeat-schedule --loglevel=INFO --concurrency=10 -n worker1@%h -f /var/log/celery.log"
     restart: unless-stopped
     hostname: celery
@@ -91,10 +104,11 @@ services:
       - ./env/celery.env
     volumes:
       - "./:/code/"
-    networks:
-      -cartoview-internal:
+  
+  # NGINX  
   nginx:
-    image: nginx:alpine
+    image: nginx:${NGINX_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-nginx
     restart: unless-stopped
     expose:
       - "80"
@@ -102,20 +116,18 @@ services:
       - ./scripts/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./static/:/cartoview/static/
       - ./uploaded/:/cartoview/uploaded/
-    networks:
-      -cartoview-external:
-        ipv4_address: 10.5.0.4
-      -cartoview-internal:
     ports:
       - "80:80"
-networks:
-  -cartoview-external:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.5.0.0/16
-  -cartoview-internal:
-    internal: true
+
 volumes:
-  geoserver-dir:
-  postgis-data:
+  db-data:
+    name: ${COMPOSE_PROJECT_NAME}-db-data
+  db-backups:
+    name: ${COMPOSE_PROJECT_NAME}-db-backups
+  geoserver-dir:  
+    name: ${COMPOSE_PROJECT_NAME}-gs-data-dir  
+  es-data:
+    name: ${COMPOSE_PROJECT_NAME}-es-data  
+  rabbitmq-data:
+    name: ${COMPOSE_PROJECT_NAME}-rabbitmq-data
+  

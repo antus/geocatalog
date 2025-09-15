@@ -1,4 +1,4 @@
-FROM python:3.10.2-buster
+FROM python:3.8.9
 LABEL "MAINTAINER"="Cartologic Development Team"
 
 ENV PYTHONUNBUFFERED 1

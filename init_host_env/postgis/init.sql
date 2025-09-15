@@ -1,0 +1,10 @@
+CREATE ROLE cartoview_datastore WITH
+		  LOGIN
+		  SUPERUSER
+		  INHERIT
+		  CREATEDB
+		  CREATEROLE
+		  REPLICATION
+		  ENCRYPTED PASSWORD 'SCRAM-SHA-256$4096:6OI070m6+DHWM9LMEx4fKg==$9nPkMohoCrYL8bCabu+Wd38639/uk0zMWuIEnoS2RXo=:hzZSfUDxBVVyZZ8x1b92s54fsGizQx8C4wwypoZu9WQ=';
+
+		GRANT docker TO cartoview_datastore;

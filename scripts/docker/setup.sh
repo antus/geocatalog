@@ -1,44 +1,43 @@
 #!/bin/bash
-
-# Bash "strict mode", to help catch problems and bugs in the shell
-# script. Every bash script you write should include this. See
-# http://redsymbol.net/articles/unofficial-bash-strict-mode/ for
-# details.
+echo "Start Setup"
+# Bash "strict mode"
 set -euo pipefail
 
-# Tell apt-get we're never going to be able to give manual
-# feedback:
 export DEBIAN_FRONTEND=noninteractive
 
-# Update the package listing, so we know what package exist:
+# Aggiorna i repository a quelli dell’archivio Debian (Buster è EOL)
+cat > /etc/apt/sources.list <<EOF
+deb http://archive.debian.org/debian buster main contrib non-free
+deb http://archive.debian.org/debian-security buster/updates main contrib non-free
+deb http://archive.debian.org/debian buster-updates main contrib non-free
+EOF
+
+# Disabilita la verifica "Valid-Until" (necessaria con archive.debian.org)
+apt-get -o Acquire::Check-Valid-Until=false update
+
+# Aggiorna pacchetti
 apt-get update
 
-# Install security updates:
 apt-get -y upgrade
 
-# Install wget and gnupg
-apt-get install wget gnupg -y
+# Installa wget e gnupg
+apt-get install -y wget gnupg
 
-# Enable postgresql-client-13
-echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list
-echo "deb http://deb.debian.org/debian/ stable main contrib non-free" | tee /etc/apt/sources.list.d/debian.list
+# Abilita postgresql-client-13 (usa bullseye-pgdg invece di buster-pgdg)
+echo "deb http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list
 wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
-# To get GDAL 3.2.1 to fix this issue https://github.com/OSGeo/gdal/issues/1692
-# TODO: The following line should be removed if base image upgraded to Bullseye
-echo "deb http://deb.debian.org/debian/ bullseye main contrib non-free" | tee /etc/apt/sources.list.d/debian.list
+# Per GDAL 3.2.1 (rimane bullseye solo per questo pacchetto)
+echo "deb http://deb.debian.org/debian bullseye main contrib non-free" | tee /etc/apt/sources.list.d/debian-bullseye.list
 
-# add gdal repo
-#echo "deb http://http.us.debian.org/debian buster main non-free contrib" >>/etc/apt/sources.list
-#add-apt-repository ppa:ubuntugis/ppa && apt-get update
-
-# This section is borrowed from the official Django image but adds GDAL and others
-apt-get update && apt-get install -y \
-    libgdal-dev libpq-dev libxml2-dev \
+# Installa librerie di base (aggiunto gdal-bin per gdal-config)
+apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y \
+    libgdal-dev gdal-bin libpq-dev libxml2-dev \
     libxml2 libxslt1-dev zlib1g-dev libjpeg-dev \
     libmemcached-dev libldap2-dev libsasl2-dev libffi-dev
 
-apt-get update && apt-get install -y \
+
+apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y \
     gcc zip gettext geoip-bin cron \
     postgresql-client-13 \
     sqlite3 spatialite-bin libsqlite3-mod-spatialite \
@@ -48,36 +47,35 @@ apt-get update && apt-get install -y \
     firefox-esr \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Prepraing dependencies
-apt-get update && apt-get install -y devscripts build-essential debhelper pkg-kde-tools sharutils
+
+# Prepara dipendenze aggiuntive
+apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y \
+    devscripts build-essential debhelper pkg-kde-tools sharutils
+
+apt-get -o Acquire::Check-Valid-Until=false install -y libffi7 || true
 
 # Install pip packages
-pip install pip --upgrade \
-    && pip install pygdal==$(gdal-config --version).* flower==0.9.4
+pip install --upgrade pip
+pip install "pip<24.1"
+pip install "pygdal==$(gdal-config --version).*" flower==0.9.4
 
-# Activate "memcached"
-apt install -y memcached
-pip install pylibmc \
-    && pip install sherlock
+# Attiva memcached
+apt-get install -y memcached
+pip install pylibmc sherlock
 
-# install geonode from commit hash if dev enabled
-#if [ "$GEONODE_DEV" = true ]; then
-#       git clone https://github.com/GeoNode/geonode.git &&
-#               cd ${APP_DIR}/geonode && pip install . &&
-#               rm -rf /geonode
-#fi
-
-# create required dirs
+# Crea cartelle richieste
 mkdir -p ${APP_DIR}
 
-# install cartoview [this will install GeoNode as a dependancy]
-cd ${APP_DIR}/cartoview && pip install -e .  # && rm -rf /cartoview
+# Installa cartoview (installa anche GeoNode come dipendenza)
+cd ${APP_DIR}/cartoview && pip install -e .
 
-# cleanup image
-rm -rf ~/.cache/pip
-rm -rf /root/.cache
+# Cleanup immagine
+rm -rf ~/.cache/pip /root/.cache
 apt autoremove --purge -y && apt autoclean -y && apt-get clean -y
-rm -rf /var/lib/apt/lists/* && apt-get clean -y &&
-        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-echo "Yes, do as I say!" | apt-get remove --force-yes login &&
-        dpkg --remove --force-depends wget
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+echo "Create link to libffi.so.6"
+ln -s /usr/lib/x86_64-linux-gnu/libffi.so.7 /usr/lib/x86_64-linux-gnu/libffi.so.6
+pip install pyOpenSSL==22.0.0  cryptography==35.0.0
+
+echo "Yes, do as I say!" | apt-get remove --force-yes login && \
+    dpkg --remove --force-depends wget

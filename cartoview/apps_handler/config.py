@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-try:
-    from collections.abc import Mapping
-except ImportError:
-    from collections import Mapping
+from collections import Mapping
 import portalocker
 
 

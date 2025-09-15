@@ -1,6 +1,6 @@
 up:
 
-	docker-compose up -d
+	docker-compose -f docker-compose-prod.yml up -d
 
 sync: up
 
@@ -14,6 +14,7 @@ backfill_api_keys:
 	docker-compose exec cartoview python manage.py backfill_api_keys
 
 prepare_manager: up
+
 	docker-compose exec cartoview python manage.py makemigrations app_manager
 migrate_account: up
 	docker-compose exec cartoview python manage.py migrate account
@@ -30,7 +31,7 @@ logs_tail_cartoview:
 logs_tail_geoserver:
 	docker-compose logs --follow --tail 100 geoserver
 down:
-	docker-compose down
+	docker-compose -f docker-compose-prod.yml down
 reset: down up wait sync
 
 collect_static: up
@@ -46,6 +47,6 @@ static_db: up sync wait collect_static
 
 update:
 	docker-compose exec cartoview pip install cartoview --no-cache-dir -U
-	docker-compose restart cartoview
+	docker-compose -f docker-compose-prod.yml restart cartoview
 new_app: collect_static
-	docker-compose restart cartoview
+	docker-compose -f docker-compose-prod.yml restart cartoview
