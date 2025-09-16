@@ -30,7 +30,7 @@ def load_apps(APPS_DIR):
         create_apps_dir(APPS_DIR)
         if APPS_DIR not in sys.path:
             sys.path.append(APPS_DIR)
-        logger.info("Loading Cartoview Apps.....")
+        logger.info("Loading Cartoview Apps.....in {}".format(APPS_DIR))
         CartoviewApp.apps_dir = APPS_DIR
         CartoviewApp.load()
         for app in CartoviewApp.objects.values():
@@ -60,3 +60,4 @@ def load_apps(APPS_DIR):
             except Exception as e:
                 print(e)
                 logger.error(e)
+        logger.info("End installation\n")

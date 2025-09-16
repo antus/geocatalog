@@ -2,80 +2,70 @@ version: '3.9'
 
 services:
 
-  # POSTGIG
   postgis:
-    image: kartoza/postgis:${POSTGIS_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-postgis
+    image: kartoza/postgis:13
+    container_name: cartoview_postgis
     volumes:
-      - db-data:/var/lib/postgresql
-      - db-backups:/backups
-      - ./init_host_env/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgis-data:/var/lib/postgresql
+      # - dbbackups:/backups
     env_file:
       - ./env/postgis.env
     expose:
       - "5432"
-    healthcheck:
-      test: "pg_isready -d postgres -U postgres"
-    # uncomment to enable remote connections to postgres
     ports:
-      - "5444:5432"      
+      - "5444:5432"
     restart: on-failure
+    healthcheck:
+      test: "exit 0"
 
-  # ELASTIC-SEARCH
   elasticsearch:
-    image: elasticsearch:${ELASTICSEARCH_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-elastic-search
+    image: elasticsearch:5.6.12-alpine
+    container_name: cartoview_elasticsearch
     restart: unless-stopped
     stdin_open: true
     tty: true
     expose:
       - "9300"
       - "9200"
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
 
-  # RABBIT-MQ
   rabbitmq:
-    image: rabbitmq:${RABBITMQ_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-rabbitmq
+    image: rabbitmq:latest
+    container_name: cartoview_rabbitmq
     restart: unless-stopped
     expose:
       - "5672"
       - "15672"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq      
 
-  # GEOSERVER-DATA-DIR
   data-dir-conf:
-    image: geonode/geoserver_data:${GEOSERVER_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-gs-data-dir-conf
+    image: geonode/geoserver_data:2.20.7
     restart: on-failure
+    container_name: cartoview_gs_datadir
     command: /bin/true
     volumes:
       - geoserver-dir:/geoserver_data/data
       - ./geoserver-data/global.xml:/geoserver_data/data/global.xml
-      - ./geoserver-data/config.xml:/geoserver_data/data/security/filter/geonode-oauth2/config.xml      
+      - ./geoserver-data/config.xml:/geoserver_data/data/security/filter/geonode-oauth2/config.xml
 
-  # GEOSERVER 
   geoserver:
-    image: geonode/geoserver:${GEOSERVER_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-geoserver
+    image: geonode/geoserver:2.20.7
+    container_name: cartoview_geoserver
     depends_on:
       - postgis
       - data-dir-conf
     restart: unless-stopped
     expose:
       - "8080"
+
     volumes:
       - geoserver-dir:/geoserver_data/data
+      #- ./geoserver-data/web.xml:/usr/local/tomcat/webapps/geoserver/WEB-INF/web.xml
     env_file:
       - ./env/tomcat.env
-  
-  # CARTOVIEW
+
   cartoview:
     build: .
     image: cartoview:latest
-    container_name: ${COMPOSE_PROJECT_NAME}-django
+    container_name: cartoview_django
     command: bash -c "python manage.py cherry_server"
     restart: unless-stopped
     hostname: cartoview
@@ -87,14 +77,13 @@ services:
     volumes:
       - "./:/usr/src/carto_app/cartoview"
       - geoserver-dir:/geoserver_data/data
-      - ./static/:/usr/src/carto_app/cartoview/cartoview/static      
+      - ./static/:/usr/src/carto_app/cartoview/cartoview/static
     expose:
       - "8000"
-      
-  # CELERY      
+
   celery:
     image: cartoview:latest
-    container_name: ${COMPOSE_PROJECT_NAME}-celery
+    container_name: cartoview_celery
     command: bash -c "celery -A cartoview.celery:app worker -B -E --statedb=./worker.state -s ./celerybeat-schedule --loglevel=INFO --concurrency=10 -n worker1@%h -f /var/log/celery.log"
     restart: unless-stopped
     hostname: celery
@@ -107,31 +96,29 @@ services:
       - ./env/celery.env
     volumes:
       - "./:/code/"
-  
-  # NGINX  
+
   nginx:
-    image: nginx:${NGINX_VERSION}
-    container_name: ${COMPOSE_PROJECT_NAME}-nginx
+    image: nginx:alpine
+    container_name: cartoview_nginx
     restart: unless-stopped
     expose:
       - "80"
     volumes:
       - ./scripts/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./static/:/cartoview/static/
+      #- ./static_app_manager/:/cartoview/static/app_manager/
       - ./uploaded/:/cartoview/uploaded/
+      - ./security/localhost.crt:/etc/ssl/certs/nginx-certificate.crt
+      - ./security/localhost.key:/etc/ssl/certs/nginx.key
     ports:
       - "80:80"
-      - "443:443"      
-
+      - "443:443"
+  
 volumes:
-  db-data:
-    name: ${COMPOSE_PROJECT_NAME}-db-data
-  db-backups:
-    name: ${COMPOSE_PROJECT_NAME}-db-backups
-  geoserver-dir:  
-    name: ${COMPOSE_PROJECT_NAME}-gs-data-dir  
-  es-data:
-    name: ${COMPOSE_PROJECT_NAME}-es-data  
-  rabbitmq-data:
-    name: ${COMPOSE_PROJECT_NAME}-rabbitmq-data
+  geoserver-dir:
+  postgis-data:
+  illegalbuilding-postgresql-data:
+
+
+
   
