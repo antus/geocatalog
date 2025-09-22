@@ -28,10 +28,10 @@ After registration, you will be able to explore all the basic functionalities of
 ## Prerequisites
 	1. Install docker, git
 	2. download geocatalog
+	3. On windows, install from pre-requisites folder make-3.81.exe 
 ## Installation	
     1. Set environment variable GP_HOST with the public IP or hostname of the machine and the port used with ngnix in docker-compose/docker-compose-prod. Ex: GP_HOST=10.5.0.1:8080
 	2. Launch init_host.bat to setup the host on the configuration files
-	3. On windows, install from pre-requisites folder make-3.81.exe 
 	4. For dev:
 		launch 'make run'
 	   For prod:
